@@ -57,8 +57,16 @@ QtObject {
             }
         }
         onExited: function() {
-            // Push everything to the UI at once
             root.wallpapers = root.tempWalls
+        }
+    }
+
+    property var _themeConn: Connections {
+        target: Theme
+        function onActiveChanged() {
+            if (Theme.active && String(Theme.active).trim() !== "") {
+                root.updateBorders()
+            }
         }
     }
 
