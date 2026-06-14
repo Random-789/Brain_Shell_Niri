@@ -93,6 +93,7 @@ mkdir -p "$USER_DATA" \
 cp -n "$REPO_DIR/src/config/hypridle.conf" "$HOME/.config/hypr/" 2>/dev/null || true
 touch "$HOME/.cache/brain-shell/colors.json"
 cp -n -r "$REPO_DIR/src/assets/wallpapers"/* "$HOME/Pictures/Wallpapers/" 2>/dev/null || true
+touch "$USER_DATA/keybinds.json"
 
 printf '{"configProvider": "%s"}\n' "$CONFIG_TYPE" > "$USER_DATA/config_Provider.json"
 printf '{}\n' > "$USER_DATA/keybinds.json"
