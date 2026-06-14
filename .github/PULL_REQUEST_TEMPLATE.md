@@ -13,4 +13,11 @@
 - [ ] (If applicable) I have tested UI changes on secondary monitors or different resolutions.
 - [ ] (If applicable) I have verified my bash scripts run cleanly without syntax errors.
 
-## Related Issues
+## WAIT! Before you proceed:
+- [ ] **Did you target the `dev` branch?** (Look at the top of this page. It should say `base: dev` <- `compare: your-branch`. If it says `base: main`, please change it before submitting!)
+- [ ] Does your PR title follow the Conventional Commits format? (e.g., `feat: added new thing` or `fix: resolved crash`)
+
+---
+
+### Description
+### Related Issues
