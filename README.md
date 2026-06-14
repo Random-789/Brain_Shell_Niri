@@ -115,8 +115,7 @@ sudo nixos-rebuild switch --flake# /etc/nixos/#hostname
 
 ### 4. Run the user installer
 
-Once Nix finishes installing all the system packages and dependencies, simulate the final user step by curling the `install.sh` directly from your branch to set up the mutable `~/.config` files and Hyprland autostarts.
-
+Once the system rebuild is finished, run the setup script to initialize your local ~/.config files and Hyprland autostarts.
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/Brainitech/Brain_Shell/main/install.sh)
 ```
