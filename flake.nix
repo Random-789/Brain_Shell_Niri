@@ -20,6 +20,13 @@
            cp -r $src/src $src/shell.qml $out/
          '';
         };
+
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [
+            git
+            python3
+          ];
+        };
       }
     ) // {
       nixosModules.default = { config, pkgs, lib, ... }:
