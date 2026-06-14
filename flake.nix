@@ -63,6 +63,7 @@
             hyprlock
             hypridle
             hyprsunset
+            hyprshutdown
             xdg-desktop-portal-hyprland
             cliphist
             nerd-fonts.jetbrains-mono
