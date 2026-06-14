@@ -1,5 +1,5 @@
   <h1 align=center>Brain_Shell</h1>
-  
+
   <h3 align="center">
   A dynamic, highly modular Wayland desktop shell built with Quickshell and QML, tailored for Hyprland.
   </h3>
@@ -73,6 +73,66 @@ cd Brain_Shell
 chmod +x install.sh
 ./install.sh
 ```
+
+### NixOS
+
+### 1. Create or edit `/etc/nixos/flake.nix`
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    brain-shell = {
+      # Explicitly targeting the branch using ?ref=
+      url = "github:Brainitech/Brain_Shell?ref=attempt/Nix_Support";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { nixpkgs, brain-shell, ... }: {
+    # Replace "nixos" with whatever your VM's actual hostname is
+    nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+      modules = [
+        brain-shell.nixosModules.default
+        ./configuration.nix
+      ];
+    };
+  };
+}
+
+```
+
+### 2. Enable it in `/etc/nixos/configuration.nix`
+
+
+
+```nix
+programs.brain-shell.enable = true;
+
+# Required on fresh NixOS installs to allow flakes
+nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
+```
+
+### 3. Rebuild the system
+
+Run the rebuild command targeting the flake.
+
+```bash
+sudo nixos-rebuild switch --flake /etc/nixos/#nixos
+
+```
+
+### 4. Run the user installer
+
+Once Nix finishes installing all the system packages and dependencies, simulate the final user step by curling the `install.sh` directly from your branch to set up the mutable `~/.config` files and Hyprland autostarts.
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/Brainitech/Brain_Shell/attempt/Nix_Support/install.sh)
+
+```
+
+Restart Hyprland, and that's the complete end-to-end user experience.
 
 The installer automatically:
 
@@ -218,7 +278,7 @@ Known Issues
 
 - **Shutdown Menu (Hyprshutdown) State:** Canceling a shutdown or logout action can sometimes leave the Hyprland session in an empty state with most applications unintentionally closed. It may also occasionally struggle to terminate all running apps smoothly.
 
-> [!WARNING]  
+> [!WARNING]
 > **NixOS & Flakes Support:** The current NixOS installation pipeline and Flake implementation are highly experimental and currently known to be broken. This is actively under testing and will be properly addressed in an upcoming patch. If you are on NixOS, manual configuration is currently required.
 
 ---
