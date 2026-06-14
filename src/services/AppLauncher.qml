@@ -1,24 +1,21 @@
 import QtQuick
 import QtQuick.Controls
-import Quickshell.Io
 import Quickshell
 import "../"
-
-// AppLauncher — scrollable app list + bottom search bar.
-// Lives inside Dashboard.qml on the "launcher" page.
-// Dashboard is PanelWindow with WlrKeyboardFocus.OnDemand,
-// so TextInput receives keys without extra wiring.
 
 Item {
     id: root
 
     // ── State ─────────────────────────────────────────────────────────────────
-    property var  apps:     []
     property bool loading:  true
     property int  selIndex: -1
     property string query:  ""
 
+    readonly property var apps: DesktopEntries.applications.values
+
     readonly property var filtered: {
+        if (loading) return []
+
         var q = query.toLowerCase().trim()
         if (q === "") return apps
         return apps.filter(function(a) {
@@ -26,32 +23,23 @@ Item {
         })
     }
 
-    // ── Load apps ─────────────────────────────────────────────────────────────
-    Process {
-        id: listProc
-        command: ["python3", Quickshell.shellDir + "/src/scripts/list_apps.py"]
-        running: false
-        stdout: StdioCollector {
-            id: listBuf
-            onStreamFinished: {
-                try   { root.apps = JSON.parse(listBuf.text) }
-                catch (e) { root.apps = [] }
-                root.loading  = false
-                root.selIndex = root.apps.length > 0 ? 0 : -1
-            }
-        }
-    }
-
     onVisibleChanged: {
         if (!visible) return
         root.loading   = true
-        root.apps      = []
+        searchInput.text = ""
         root.query     = ""
         root.selIndex  = -1
-        searchInput.text = ""
-        listProc.running = false
-        listProc.running = true
+        delayTimer.restart()
         focusTimer.restart()
+    }
+
+    Timer {
+        id: delayTimer
+        interval: 150
+        onTriggered: {
+            root.loading  = false
+            root.selIndex = root.filtered.length > 0 ? 0 : -1
+        }
     }
 
     Timer {
@@ -61,16 +49,8 @@ Item {
     }
 
     // ── Launch ────────────────────────────────────────────────────────────────
-    Process {
-        id: launcher
-        command: []
-        running: false
-    }
-
-    function launch(exec) {
-        launcher.command = ["bash", "-c", "setsid " + exec + " &>/dev/null &"]
-        launcher.running = false
-        launcher.running = true
+    function launch(entry) {
+        entry.execute()
         Popups.dashboardOpen = false
     }
 
@@ -79,7 +59,7 @@ Item {
         anchors.fill: parent
         spacing: 8
 
-        // App list
+        // App list container
         Item {
             width:  parent.width
             height: parent.height - searchBar.height - parent.spacing
@@ -94,10 +74,17 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "󰣪"; font.pixelSize: 32
                     color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3)
+
+                    RotationAnimation on rotation {
+                        loops: Animation.Infinite
+                        from: 0; to: 360
+                        duration: 1500
+                        running: root.loading
+                    }
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text:           "Loading apps…"
+                    text:           "Initializing..."
                     color:          Qt.rgba(1,1,1,0.25)
                     font.pixelSize: 13
                 }
@@ -128,7 +115,10 @@ Item {
                 id: appList
                 anchors.fill: parent
                 visible: !root.loading && root.filtered.length > 0
-                model:   root.filtered
+
+                // Reverted directly back to the pure array (instant updates, no glitching)
+                model: root.filtered
+
                 clip:    true
                 spacing: 3
                 boundsBehavior: Flickable.StopAtBounds
@@ -178,32 +168,45 @@ Item {
                             width: 28; height: 28
                             anchors.verticalCenter: parent.verticalCenter
 
-                            Image {
-                                id: ico
+                            Loader {
+                                id: iconLoader
                                 anchors.fill: parent
-                                source: {
-                                    var s = modelData.icon
-                                    if (!s || s === "")    return ""
-                                    if (s.startsWith("/")) return "file://" + s
-                                    return "image://icon/" + s
+                                asynchronous: true
+                                active: true
+
+                                sourceComponent: Image {
+                                    source: {
+                                        var s = modelData.icon;
+                                        // Tier 1 Fallback: Ask Quickshell for the generic Linux application icon
+                                        if (!s || s.trim() === "") return "image://icon/application-x-executable";
+                                        if (s.startsWith("/")) return "file://" + s;
+                                        return "image://icon/" + s;
+                                    }
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                    sourceSize.width: 28
+                                    sourceSize.height: 28
+
+                                    onStatusChanged: {
+                                        if (status === Image.Error || status === Image.Null) {
+                                            Qt.callLater(function() { iconLoader.active = false; });
+                                        }
+                                    }
                                 }
-                                fillMode:          Image.PreserveAspectFit
-                                smooth:            true
-                                sourceSize.width:  28
-                                sourceSize.height: 28
                             }
 
-                            // Letter fallback
+                            // Tier 2 Fallback: Nerd Font Icon
                             Rectangle {
                                 anchors.fill: parent
-                                radius:       7
+                                radius: 7
                                 color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                                visible: ico.status !== Image.Ready || modelData.icon === ""
+                                visible: !iconLoader.active || (iconLoader.item && iconLoader.item.status !== Image.Ready)
+
                                 Text {
                                     anchors.centerIn: parent
-                                    text:           modelData.name.charAt(0).toUpperCase()
-                                    font.pixelSize: 13; font.bold: true
-                                    color:          Theme.active
+                                    text: "󰀻" // Generic Nerd Font App Grid Icon
+                                    font.pixelSize: 16
+                                    color: Theme.active
                                 }
                             }
                         }
@@ -226,7 +229,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         onEntered:    root.selIndex = index
-                        onClicked:    root.launch(modelData.exec)
+                        onClicked:    root.launch(modelData)
                     }
                 }
             }
@@ -278,8 +281,9 @@ Item {
                         selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                         clip: true
 
+                        // Debouncer removed: Instant 1:1 keystroke filtering
                         onTextChanged: {
-                            root.query    = text
+                            root.query = text
                             root.selIndex = root.filtered.length > 0 ? 0 : -1
                             if (root.filtered.length > 0)
                                 appList.positionViewAtIndex(0, ListView.Beginning)
@@ -301,7 +305,7 @@ Item {
 
                         Keys.onReturnPressed: {
                             if (root.selIndex >= 0 && root.selIndex < root.filtered.length)
-                                root.launch(root.filtered[root.selIndex].exec)
+                                root.launch(root.filtered[root.selIndex])
                         }
 
                         Keys.onEscapePressed: {
