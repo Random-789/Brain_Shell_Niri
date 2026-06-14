@@ -155,14 +155,17 @@ Item {
                     fill:         parent
                     topMargin:    6
                     leftMargin:   2
-                    rightMargin:  12 
+                    rightMargin:  12
                     bottomMargin: 4
                 }
-                clip:           true
-                spacing:        4
-                boundsBehavior: Flickable.StopAtBounds
-                visible:        root.flatModel.length > 0
-                model:          root.flatModel
+                clip:                true
+                spacing:             4
+                boundsBehavior:      Flickable.StopAtBounds
+                visible:             root.flatModel.length > 0
+                model:               root.flatModel
+                focus:               true
+                keyNavigationEnabled: true
+                keyNavigationWraps:  true
 
                 // Point to the detached scrollbar below
                 ScrollBar.vertical: vbar
@@ -172,11 +175,36 @@ Item {
                     NumberAnimation { property: "y"; duration: 220; easing.type: Easing.OutCubic }
                 }
 
+                Keys.onPressed: (event) => {
+                    if (event.key === Qt.Key_Escape) {
+                        Popups.clipboardOpen = false
+                        event.accepted = true
+                        return
+                    }
+                    var item = root.flatModel[mainList.currentIndex]
+                    if (!item) return
+                    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                        if (item.kind === "pinned")
+                            ClipboardService.copyText(item.text || item.preview)
+                        else
+                            ClipboardService.copyEntry(item.id)
+                        Popups.clipboardOpen = false
+                        event.accepted = true
+                    } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+                        if (mainList.currentItem) mainList.currentItem.deleteRow()
+                        event.accepted = true
+                    } else if (event.key === Qt.Key_P) {
+                        if (mainList.currentItem && !item.isImage) mainList.currentItem.togglePin()
+                        event.accepted = true
+                    }
+                }
+
                 delegate: ClipRow {
                     required property var modelData
                     required property int index
                     width: mainList.width - 4
 
+                    highlighted: index === mainList.currentIndex
                     isPinned:    modelData.kind === "pinned"
                     entryId:     modelData.kind === "pinned" ? (modelData.storedId ?? "") : (modelData.id ?? "")
                     previewText: modelData.preview ?? ""
@@ -212,12 +240,27 @@ Item {
 component ClipRow: Item {
     id: row
 
+
     property bool   isPinned:    false
+    property bool   highlighted: false
     property string entryId:     ""   // cliphist row id (for history) or storedId (for pinned)
     property string previewText: ""   // cliphist list preview string
     property string fullText:    ""   // full decoded text (pinned items only)
     property bool   isImage:     false
     property int    pinnedIndex: -1
+
+    function deleteRow() {
+        row._removing = true
+        delayedAction.isPinned    = row.isPinned
+        delayedAction.pinnedIndex = row.pinnedIndex
+        delayedAction.entryId     = row.entryId
+        delayedAction.restart()
+    }
+
+    function togglePin() {
+        if (row.isPinned) ClipboardService.unpinAt(row.pinnedIndex)
+        else              ClipboardService.pinEntry(row.entryId, row.previewText)
+    }
 
     // Image preview: decoded to a temp file per entry id
     property string _imgPath: ""
@@ -257,12 +300,14 @@ component ClipRow: Item {
         radius: 9
 
         color: row.isPinned
-            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, rHov.hovered ? 0.10 : 0.055)
-            : rHov.hovered ? Qt.rgba(1, 1, 1, 0.065) : Qt.rgba(1, 1, 1, 0.024)
+            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, (rHov.hovered || row.highlighted) ? 0.10 : 0.055)
+            : (rHov.hovered || row.highlighted) ? Qt.rgba(1, 1, 1, 0.065) : Qt.rgba(1, 1, 1, 0.024)
 
         border.color: row.isPinned
-            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, rHov.hovered ? 0.30 : 0.18)
-            : rHov.hovered ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(1, 1, 1, 0.065)
+            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, (rHov.hovered || row.highlighted) ? 0.30 : 0.18)
+            : row.highlighted
+                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.50)
+                : rHov.hovered ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(1, 1, 1, 0.065)
         border.width: 1
 
         Behavior on color        { ColorAnimation { duration: 140 } }
@@ -361,7 +406,7 @@ component ClipRow: Item {
                 id: actionsRow
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 2
-                opacity: rHov.hovered ? 1 : 0
+                opacity: rHov.hovered || row.highlighted ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 160 } }
 
                 // Copy
