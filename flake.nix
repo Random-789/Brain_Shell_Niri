@@ -61,8 +61,6 @@
             nerd-fonts.jetbrains-mono
             nerd-fonts.symbols-only
             git
-
-
           ];
         in {
           options.programs.brain-shell = {
@@ -71,6 +69,12 @@
 
           config = mkIf cfg.enable {
             environment.systemPackages = brainShellDeps ++ [ self.packages.${pkgs.system}.default ];
+
+            # === FONT FIX: Registers the fonts with the system fontconfig ===
+            fonts.packages = with pkgs; [
+              nerd-fonts.jetbrains-mono
+              nerd-fonts.symbols-only
+            ];
 
             environment.variables.QT_QPA_PLATFORMTHEME = "qt6ct";
 
