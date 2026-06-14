@@ -55,7 +55,7 @@
 
 ---
 
-<h2>
+<h2 align="center">
   Installation
 </h2>
 
@@ -65,14 +65,7 @@
 curl -fsSL https://raw.githubusercontent.com/Brainitech/Brain_Shell/refs/heads/main/install.sh | bash
 ```
 
-### Manual installation
-
-```bash
-git clone https://github.com/Brainitech/Brain_Shell.git
-cd Brain_Shell
-chmod +x install.sh
-./install.sh
-```
+---
 
 ### NixOS
 
@@ -83,15 +76,14 @@ chmod +x install.sh
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     brain-shell = {
-      # Explicitly targeting the branch using ?ref=
-      url = "github:Brainitech/Brain_Shell?ref=attempt/Nix_Support";
+      url = "github:Brainitech/Brain_Shell?ref=main";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
   outputs = { nixpkgs, brain-shell, ... }: {
-    # Replace "nixos" with whatever your VM's actual hostname is
-    nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+    # Replace "hostname" with whatever your actual hostname is
+    nixosConfigurations.hostname = nixpkgs.lib.nixosSystem {
       modules = [
         brain-shell.nixosModules.default
         ./configuration.nix
@@ -104,12 +96,10 @@ chmod +x install.sh
 
 ### 2. Enable it in `/etc/nixos/configuration.nix`
 
-
-
 ```nix
 programs.brain-shell.enable = true;
 
-# Required on fresh NixOS installs to allow flakes
+# Note: If this is a fresh install, ensure flakes are enabled:
 nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
 ```
@@ -119,7 +109,7 @@ nix.settings.experimental-features = [ "nix-command" "flakes" ];
 Run the rebuild command targeting the flake.
 
 ```bash
-sudo nixos-rebuild switch --flake /etc/nixos/#nixos
+sudo nixos-rebuild switch --flake# /etc/nixos/#hostname
 
 ```
 
@@ -128,8 +118,18 @@ sudo nixos-rebuild switch --flake /etc/nixos/#nixos
 Once Nix finishes installing all the system packages and dependencies, simulate the final user step by curling the `install.sh` directly from your branch to set up the mutable `~/.config` files and Hyprland autostarts.
 
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/Brainitech/Brain_Shell/attempt/Nix_Support/install.sh)
+bash <(curl -s https://raw.githubusercontent.com/Brainitech/Brain_Shell/main/install.sh)
+```
 
+---
+
+### Manual installation
+
+```bash
+git clone https://github.com/Brainitech/Brain_Shell.git
+cd Brain_Shell
+chmod +x install.sh
+./install.sh
 ```
 
 Restart Hyprland, and that's the complete end-to-end user experience.
@@ -235,7 +235,7 @@ The installer automatically:
 
 ---
 
-<h2>
+<h2 align="center">
   Roadmap
 </h2>
 
@@ -268,7 +268,7 @@ The installer automatically:
 
 ---
 
-<h2>
+<h2 align="center">
 Known Issues
 </h2>
 
@@ -278,12 +278,9 @@ Known Issues
 
 - **Shutdown Menu (Hyprshutdown) State:** Canceling a shutdown or logout action can sometimes leave the Hyprland session in an empty state with most applications unintentionally closed. It may also occasionally struggle to terminate all running apps smoothly.
 
-> [!WARNING]
-> **NixOS & Flakes Support:** The current NixOS installation pipeline and Flake implementation are highly experimental and currently known to be broken. This is actively under testing and will be properly addressed in an upcoming patch. If you are on NixOS, manual configuration is currently required.
-
 ---
 
-<h2>
+<h2 align="center">
   Contributing
 </h2>
 
@@ -296,7 +293,7 @@ Brain Shell is actively developed and welcomes contributions!
 
 ---
 
-<h2>
+<h2 align="center">
   Special Thanks
 </h2>
 
@@ -310,7 +307,7 @@ Brain Shell is actively developed and welcomes contributions!
 
 ---
 
-<h2>
+<h2 align="center">
   Brain Cells Collected
 </h2>
 
@@ -326,7 +323,7 @@ Brain Shell is actively developed and welcomes contributions!
 
 ---
 
-<h2>
+<h2 align="center">
   License
 </h2>
 

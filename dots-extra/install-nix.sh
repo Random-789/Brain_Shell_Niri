@@ -78,7 +78,7 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STEP 2 — Brain Shell Config
+# STEP 2 — Brain Shell Config & Keybind Check
 # ══════════════════════════════════════════════════════════════════════════════
 step 2 "Brain Shell Config"
 
@@ -99,43 +99,97 @@ printf '{}\n' > "$USER_DATA/keybinds.json"
 
 log_ok "Config and cache directories initialized."
 
-# ══════════════════════════════════════════════════════════════════════════════
-# STEP 3 — NixOS Dependencies
-# ══════════════════════════════════════════════════════════════════════════════
-step 3 "NixOS Dependencies"
-
-log_info "On NixOS, packages must be declared in your configuration."
+# ── Keybind Conflict Detection ────────────────────────────────────────────────
 echo ""
-echo -e "  ${BOLD}Add the following to your configuration.nix or home.nix:${NC}"
-echo -e "  ${DIM}──────────────────────────────────────────────────${NC}"
-cat << 'EOF'
-  environment.systemPackages = with pkgs; [
-    # Qt & Core
-    qt6.qtbase qt6.qtdeclarative qt6.qtmultimedia qt6.qt5compat qt6ct
+log_info "Checking keybind conflicts against active Hyprland session..."
 
-    # Audio & Media
-    pipewire wireplumber playerctl mpv mpc-cli
+python3 << 'PYEOF' || log_warn "Keybind check skipped (Python error or no Hyprland session)."
+import subprocess, json, os, sys
 
-    # Utilities
-    networkmanager bluez brightnessctl upower libnotify polkit
-    wl-clipboard slurp xdg-user-dirs wf-recorder cava imagemagick
-    wtype lm_sensors rfkill cliphist matugen
+DEFAULTS = {
+    "dashboard-home":      {"mods": "SUPER",        "key": "D",      "label": "Dashboard: System"},
+    "dashboard-stats":     {"mods": "CTRL + SHIFT", "key": "ESCAPE", "label": "Dashboard: Home"},
+    "dashboard-kanban":    {"mods": "SUPER",        "key": "Z",      "label": "Dashboard: Tasks"},
+    "dashboard-launcher":  {"mods": "SUPER",        "key": "Q",      "label": "Dashboard: Apps"},
+    "dashboard-config":    {"mods": "SUPER",        "key": "C",      "label": "Dashboard: Config"},
+    "PowerMenu-toggle":    {"mods": "SUPER",        "key": "ESCAPE", "label": "Power Menu"},
+    "notification-toggle": {"mods": "SUPER",        "key": "N",      "label": "Notifications"},
+    "wallpaper-toggle":    {"mods": "SUPER",        "key": "W",      "label": "Wallpaper"},
+    "clipboard-toggle":    {"mods": "SUPER",        "key": "V",      "label": "Clipboard"},
+    "wifi-toggle":         {"mods": "SUPER + ALT",  "key": "W",      "label": "Network: Wi-Fi"},
+    "bluetooth-toggle":    {"mods": "SUPER + ALT",  "key": "B",      "label": "Network: Bluetooth"},
+    "vpn-toggle":          {"mods": "SUPER + ALT",  "key": "G",      "label": "Network: VPN"},
+    "hotspot-toggle":      {"mods": "SUPER + ALT",  "key": "H",      "label": "Network: Hotspot"},
+    "audioOut-toggle":     {"mods": "SUPER",        "key": "A",      "label": "Audio: Output"},
+    "audioIn-toggle":      {"mods": "SUPER + ALT",  "key": "I",      "label": "Audio: Input"},
+    "audioMix-toggle":     {"mods": "SUPER",        "key": "M",      "label": "Audio: Mixer"},
+    "focus-toggle":        {"mods": "SUPER",        "key": "B",      "label": "Focus Mode"},
+    "screenrec-on":        {"mods": "ALT",          "key": "F9",     "label": "Screen Record"},
+}
 
-    # Hyprland Ecosystem
-    hyprsunset hyprlock hypridle
+MOD_BITS = {"SHIFT": 1, "CTRL": 4, "ALT": 8, "SUPER": 64}
 
-    # You will need to pull Quickshell via its flake:
-    # inputs.quickshell.url = "git+https://git.outfoxxed.me/outfoxxed/quickshell";
-  ];
-EOF
-echo -e "  ${DIM}──────────────────────────────────────────────────${NC}"
+def mods_to_mask(mods_str):
+    mask = 0
+    for part in mods_str.upper().split("+"):
+        mask |= MOD_BITS.get(part.strip(), 0)
+    return mask
 
-if ! command -v quickshell &>/dev/null; then
-    echo ""
-    log_warn "Quickshell is not currently in your PATH!"
-    log_warn "Brain Shell will not start until you rebuild your Nix config with Quickshell."
-else
-    log_ok "Quickshell detected in PATH."
-fi
+try:
+    raw = subprocess.check_output(["hyprctl", "binds", "-j"], stderr=subprocess.DEVNULL).decode()
+    hypr_binds = json.loads(raw)
+except Exception:
+    print("  \033[2m(not inside Hyprland — skipping live conflict check)\033[0m")
+    sys.exit(0)
+
+conflicts = {}
+for action, data in DEFAULTS.items():
+    mask = mods_to_mask(data["mods"])
+    key  = data["key"].lower()
+    for hb in hypr_binds:
+        if hb.get("submap", "") or hb.get("mouse"):
+            continue
+        if hb.get("modmask") == mask and str(hb.get("key", "")).lower() == key:
+            desc = hb.get("dispatcher", "")
+            arg  = hb.get("arg", "")
+            conflicts[action] = {
+                "bind":    f"{data['mods']} + {data['key']}",
+                "label":   data["label"],
+                "used_by": f"{desc} {arg}".strip(),
+            }
+            break
+
+if not conflicts:
+    print("  \033[0;32m✓\033[0m  No keybind conflicts detected.")
+    sys.exit(0)
+
+print(f"\n  \033[0;31m✗\033[0m  {len(conflicts)} conflict(s) found:\n")
+unbound = {}
+for action, info in conflicts.items():
+    print(f"    \033[1m{info['bind']:<24}\033[0m  {info['label']}")
+    print(f"    {'':24}  already used by: {info['used_by']}\n")
+    unbound[action] = {"mods": "", "key": ""}
+
+config_path = os.path.expanduser("$HOME/.config/Brain_Shell/src/user_data/keybinds.json")
+with open(config_path, "w") as f:
+    json.dump(unbound, f, indent=2)
+
+print("  \033[1;33m⚠\033[0m  Conflicting binds left unbound in Brain Shell.")
+print("       Re-assign them: Dashboard  →  Config  →  Keybinds\n")
+PYEOF
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 3 — Done
+# ══════════════════════════════════════════════════════════════════════════════
+step 3 "Done"
+
+echo ""
+log_ok "NixOS setup complete."
+log_info "System packages and dependencies are managed entirely by your flake."
+echo ""
+echo -e "  ${BOLD}Restart Hyprland to activate Brain Shell:${NC}"
+log_info "Log out and log back in  ${DIM}(recommended)${NC}"
+log_info "hyprctl dispatch exit"
+echo ""
 
 exit 0

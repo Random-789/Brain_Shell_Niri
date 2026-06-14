@@ -70,7 +70,6 @@
           config = mkIf cfg.enable {
             environment.systemPackages = brainShellDeps ++ [ self.packages.${pkgs.system}.default ];
 
-            # === FONT FIX: Registers the fonts with the system fontconfig ===
             fonts.packages = with pkgs; [
               nerd-fonts.jetbrains-mono
               nerd-fonts.symbols-only
