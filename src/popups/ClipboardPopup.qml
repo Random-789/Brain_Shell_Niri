@@ -14,11 +14,10 @@ PanelWindow {
     readonly property int fw: Theme.cornerRadius
     readonly property int fh: Theme.cornerRadius
 
+    anchors.top:    true
+    anchors.left:   true
     anchors.right:  true
     anchors.bottom: true
-
-    implicitWidth:  popupWidth  + fw
-    implicitHeight: popupHeight + fh
 
     exclusionMode: ExclusionMode.Ignore
     color:         "transparent"
@@ -31,15 +30,6 @@ PanelWindow {
         id: focusGrabTimer
         interval: 15
         onTriggered: { if (root.windowVisible && Popups.clipboardOpen) root.wantsFocus = true }
-    }
-
-    mask: Region { item: maskProxy }
-    Item {
-        id: maskProxy
-        x:      root.implicitWidth  - sizer.width
-        y:      root.implicitHeight - sizer.height
-        width:  sizer.width
-        height: sizer.height
     }
 
     property bool windowVisible: false
@@ -69,6 +59,11 @@ PanelWindow {
         }
     }
     
+    MouseArea {
+        anchors.fill: parent
+        onClicked:    Popups.clipboardOpen = false
+    }
+
     Item {
         id: sizer
         anchors.right:  parent.right
@@ -82,6 +77,11 @@ PanelWindow {
 
         Behavior on width  { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
         Behavior on height { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked:    {}
+        }
 
         PopupShape {
             anchors.fill: parent
