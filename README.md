@@ -38,7 +38,7 @@
 
 - **Modular Setup** — Unintrusive setup
 - **Material You Integration** — Dynamic colors via Matugen
-- **Lua-Based Config** — Hyprland v0.55+ compatible
+- **Niri Window Manager Support** - Work in progress
 - **System Dashboard** — Monitor CPU, RAM, battery, temps, and more
 - **Kanban/Tasks** — To Do, Ongoing and Competed lists with Prioiry and Deadlines
 - **App Launcher** — Dropdown App Launcher
